@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>浪漫照片圣诞树（简版）</title>
+    <style>
+        html,body{margin:0;height:100%;background:#050d1a;color:#fff;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto}
+        .controls{position:absolute;top:24px;right:24px;z-index:20;display:flex;gap:10px}
+        .btn{background:rgba(20,20,20,.6);border:1px solid rgba(212,175,55,.4);color:#d4af37;padding:10px 16px;cursor:pointer;letter-spacing:1px;font-size:12px;backdrop-filter:blur(6px)}
+        .btn:hover{background:#d4af37;color:#000}
+        input[type="file"]{display:none}
+        .romance-overlay{position:absolute;inset:0;pointer-events:none;z-index:5;opacity:.18;background:radial-gradient(60% 60% at 40% 40%,rgba(255,180,220,.28) 0%,rgba(160,200,255,.22) 22%,rgba(60,80,140,.10) 60%,rgba(10,14,26,0) 100%);animation:aurora 18s linear infinite}
+        @keyframes aurora{0%{transform:translate3d(0,0,0)}50%{transform:translate3d(12px,-10px,0)}100%{transform:translate3d(0,0,0)}}
+    </style>
+    
+</head>
+<body>
+    <div class="controls">
+        <label class="btn">Select Photo<input type="file" id="file" accept="image/*"></label>
+        <button class="btn" id="music">音乐</button>
+        <button class="btn" id="reset">清空照片</button>
+    </div>
+    <div class="romance-overlay"></div>
+    <div id="hint" style="position:absolute;left:24px;top:24px;color:#ffeecf;opacity:.85;z-index:20;font-size:13px;letter-spacing:.5px;">请选择或粘贴/拖拽一张照片</div>
+    <div id="scene"></div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js'
+        import { EffectComposer } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js'
+        import { RenderPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/RenderPass.js'
+        import { UnrealBloomPass } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js'
+
+        const CONFIG = { treeHeight: 22, treeRadius: 7, copies: 28 }
+        let scene,camera,renderer,composer,bloom
+        let main = new THREE.Group()
+        let photoGroup = new THREE.Group()
+        let preferredTex = null
+
+        let clock = new THREE.Clock()
+
+        init()
+        animate()
+
+        function init(){
+            scene = new THREE.Scene()
+            scene.background = new THREE.Color(0x050d1a)
+            scene.fog = new THREE.FogExp2(0x050d1a,0.015)
+
+            camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 0.1, 1000)
+            camera.position.set(0,2,48)
+
+            renderer = new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'})
+            renderer.setSize(innerWidth, innerHeight)
+            renderer.setPixelRatio(Math.min(1.5, devicePixelRatio))
+            renderer.toneMapping = THREE.ReinhardToneMapping
+            renderer.toneMappingExposure = 2.0
+            document.getElementById('scene').appendChild(renderer.domElement)
+
+            const ambient = new THREE.AmbientLight(0xffffff,0.6)
+            scene.add(ambient)
+            const inner = new THREE.PointLight(0xb0a8ff, 2, 22)
+            inner.position.set(0,5,0)
+            main.add(inner)
+            const spotA = new THREE.SpotLight(0x9a4dff, 900); spotA.position.set(26,36,36); spotA.angle=0.5; spotA.penumbra=0.5; scene.add(spotA)
+            const spotB = new THREE.SpotLight(0xff3a3a, 700); spotB.position.set(-26,22,-26); scene.add(spotB)
+
+            bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.8, 0.4, 0.85)
+            composer = new EffectComposer(renderer)
+            composer.addPass(new RenderPass(scene,camera))
+            composer.addPass(bloom)
+
+            main.add(photoGroup)
+            scene.add(main)
+
+            window.addEventListener('resize',()=>{
+                camera.aspect = innerWidth/innerHeight
+                camera.updateProjectionMatrix()
+                renderer.setSize(innerWidth,innerHeight)
+                composer.setSize(innerWidth,innerHeight)
+            })
+
+            const hint = document.getElementById('hint')
+            document.getElementById('file').addEventListener('change', onFile)
+            document.getElementById('reset').addEventListener('click', ()=>{ clearPhotos() })
+            document.addEventListener('paste', onPaste)
+            document.addEventListener('dragover', e=>e.preventDefault())
+            document.addEventListener('drop', onDrop)
+            document.getElementById('music').addEventListener('click', toggleMusic)
+            function hideHint(){ if(hint) hint.style.display='none' }
+            ['change','paste','drop'].forEach(ev=>document.addEventListener(ev, hideHint,{once:true}))
+        }
+
+        function createFrame(tex){
+            let w=1.2,h=1.2
+            if(tex.image){ const a = tex.image.width/tex.image.height; if(a>1) h=w/a; else w=h*a }
+            const frame = new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,0.05), new THREE.MeshStandardMaterial({color:0x9a4dff,metalness:1,roughness:0.1}))
+            const photo = new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:tex,side:THREE.DoubleSide}))
+            photo.position.z = 0.04
+            const g = new THREE.Group(); g.add(frame); g.add(photo); frame.scale.set(w/1.2,h/1.2,1)
+            g.scale.set(0.85,0.85,0.85)
+            return g
+        }
+
+        function replacePhotosWith(tex){
+            preferredTex = tex
+            clearPhotos()
+            const N = CONFIG.copies
+            const turns = 3
+            for(let i=0;i<N;i++){
+                const t = i/(N-1)
+                const y = (t-0.5)*CONFIG.treeHeight*0.9
+                const rBase = CONFIG.treeRadius*(1-t)
+                const r = rBase + 3.2
+                const ang = t*turns*2*Math.PI + Math.PI/4
+                const x = Math.cos(ang)*r
+                const z = Math.sin(ang)*r
+                const g = createFrame(tex)
+                g.position.set(x,y,z)
+                g.lookAt(0,y,0); g.rotateY(Math.PI)
+                photoGroup.add(g)
+            }
+        }
+
+        function clearPhotos(){
+            while(photoGroup.children.length) photoGroup.remove(photoGroup.children[0])
+        }
+
+        function onFile(e){ const f = Array.from(e.target.files||[]).find(x=>x.type.startsWith('image/')); if(!f) return; const rd = new FileReader(); rd.onload = ev =>{ new THREE.TextureLoader().load(ev.target.result, t=>{ t.colorSpace = THREE.SRGBColorSpace; replacePhotosWith(t) }) }; rd.readAsDataURL(f) }
+        function onPaste(e){ const it = Array.from(e.clipboardData?.items||[]).find(x=>x.type?.startsWith('image/')); if(!it) return; const f = it.getAsFile(); if(!f) return; const rd = new FileReader(); rd.onload = ev =>{ new THREE.TextureLoader().load(ev.target.result, t=>{ t.colorSpace = THREE.SRGBColorSpace; replacePhotosWith(t) }) }; rd.readAsDataURL(f) }
+        function onDrop(e){ e.preventDefault(); const f = Array.from(e.dataTransfer?.files||[]).find(x=>x.type.startsWith('image/')); if(!f) return; const rd = new FileReader(); rd.onload = ev =>{ new THREE.TextureLoader().load(ev.target.result, t=>{ t.colorSpace = THREE.SRGBColorSpace; replacePhotosWith(t) }) }; rd.readAsDataURL(f) }
+
+        let audioCtx,gain,osc,melodyIdx=0,timer
+        const melody=[[392,0.4],[392,0.4],[440,0.4],[392,0.4],[523,0.4],[494,0.8],[392,0.4],[392,0.4],[440,0.4],[392,0.4],[587,0.4],[523,0.8],[392,0.4],[392,0.4],[784,0.4],[659,0.4],[523,0.4],[494,0.4],[440,0.4],[698,0.4],[698,0.4],[659,0.4],[523,0.4],[587,0.4],[523,0.8]]
+        function initAudio(){ if(audioCtx) return; audioCtx = new (window.AudioContext||window.webkitAudioContext)(); gain = audioCtx.createGain(); gain.gain.value = 0; osc = audioCtx.createOscillator(); osc.type='sine'; osc.frequency.value=440; osc.connect(gain); gain.connect(audioCtx.destination); osc.start() }
+        function playNext(){ const t = audioCtx.currentTime; const n = melody[melodyIdx++ % melody.length]; osc.frequency.setValueAtTime(n[0],t); gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(0,t); gain.gain.linearRampToValueAtTime(0.28,t+0.02); gain.gain.linearRampToValueAtTime(0.0,t+n[1]); timer = setTimeout(playNext, n[1]*1000) }
+        function toggleMusic(){ initAudio(); if(timer){ clearTimeout(timer); timer=null; gain.gain.linearRampToValueAtTime(0.0,audioCtx.currentTime+0.2) } else { playNext() } }
+
+        function animate(){ requestAnimationFrame(animate); const dt = clock.getDelta(); main.rotation.y += 0.25*dt; composer.render() }
+    </script>
+</body>
+</html>
