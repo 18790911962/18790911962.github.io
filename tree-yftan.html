@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YFTAN · Christmas Tree 集成</title>
+  <style>
+    html,body{height:100%;margin:0;background:#0b0f1a;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+    .bar{flex:0 0 auto;padding:10px 14px;background:linear-gradient(180deg,#ffffff18,#ffffff0d);backdrop-filter:blur(8px);border-bottom:1px solid #ffffff26}
+    .bar .title{font-weight:700}
+    .content{flex:1 1 auto;position:relative}
+    iframe{position:absolute;inset:0;width:100%;height:100%;border:none;background:#000}
+    .hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:720px;text-align:center;opacity:.9}
+    .btn{margin-top:14px;display:inline-block;padding:10px 16px;border-radius:12px;background:linear-gradient(45deg,#ffd56e,#ff5ea1);color:#1a1024;text-decoration:none}
+    code{background:#ffffff12;padding:2px 6px;border-radius:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="bar"><span class="title">集成 yftan/christmas-tree</span></div>
+    <div class="content" id="content">
+      <iframe id="app" src="" hidden></iframe>
+      <div class="hint" id="hint">
+        <div>需要在本机先构建该项目以供静态访问。</div>
+        <div style="margin-top:10px;text-align:left">
+          <div>构建步骤（在项目根目录执行）：</div>
+          <ol style="text-align:left">
+            <li>安装 Node.js 16+ 与 npm</li>
+            <li>运行 <code>git clone https://github.com/yftan/christmas-tree.git</code></li>
+            <li>进入 <code>christmas-tree</code> 目录，运行 <code>npm install</code></li>
+            <li>运行 <code>npm run build</code>，生成 <code>dist</code> 目录</li>
+            <li>通过当前 Python 静态服务器访问：<code>/christmas-tree/dist/index.html</code></li>
+          </ol>
+        </div>
+        <a class="btn" href="https://github.com/yftan/christmas-tree" target="_blank" rel="noopener">打开 GitHub 项目</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    const iframe=document.getElementById('app');
+    const hint=document.getElementById('hint');
+    const target='/christmas-tree/dist/index.html';
+    fetch(target,{method:'HEAD'}).then(r=>{if(r.ok){iframe.src=target;iframe.hidden=false;hint.hidden=true}else{throw new Error('not found')}}).catch(()=>{hint.hidden=false});
+  </script>
+</body>
+</html>
+
