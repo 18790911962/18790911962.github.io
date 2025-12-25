@@ -117,11 +117,12 @@
             box-shadow: 0 0 20px rgba(0,0,0,0.9);
             border-radius: 4px;
             overflow: hidden; 
-            opacity: 1;         
+            opacity: 0 !important;         
             pointer-events: none;
             z-index: 50;
             background: #000;
             transition: opacity 0.5s ease; 
+            display: none !important;
         }
         
         #webcam {
@@ -158,24 +159,7 @@
     <div id="ui-layer">
         <h1>Merry Christmas</h1>
         
-        <div class="controls-wrapper">
-            <div class="btn-group">
-                <!-- Select Folder Button -->
-                <label class="upload-btn">
-                    Select Folder
-                    <!-- webkitdirectory allows folder selection -->
-                    <input type="file" id="folder-input" webkitdirectory directory multiple>
-                </label>
-                
-                <!-- Select Individual Files Button -->
-                <label class="upload-btn">
-                    Select Files
-                    <input type="file" id="file-input" multiple accept="image/*">
-                </label>
-            </div>
-            <div class="hint-text">Use "Select Folder" to load all photos at once</div>
-            <div class="hint-text" style="opacity: 0.7; font-size: 8px;">Or put photos in "./images/" (1.jpg - 30.jpg)</div>
-        </div>
+        
     </div>
 
     <div id="webcam-wrapper">
@@ -767,9 +751,8 @@
                 composer.setSize(window.innerWidth, window.innerHeight);
             });
             
-            // 绑定两个上传按钮事件
-            document.getElementById('file-input').addEventListener('change', handleImageUpload);
-            document.getElementById('folder-input').addEventListener('change', handleImageUpload);
+            const fi = document.getElementById('file-input'); if(fi) fi.addEventListener('change', handleImageUpload);
+            const fo = document.getElementById('folder-input'); if(fo) fo.addEventListener('change', handleImageUpload);
             
             window.addEventListener('keydown', (e) => {
                 if (e.key.toLowerCase() === 'h') {
