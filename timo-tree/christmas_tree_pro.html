@@ -798,7 +798,14 @@
                     const stream = await navigator.mediaDevices.getUserMedia(constraints);
                     video.srcObject = stream;
                     try{ await video.play(); }catch(_){}
-                    video.addEventListener("loadeddata", predictWebcam);
+                    const startDetect = ()=>{ 
+                        if(!video.videoWidth || !video.videoHeight){ 
+                            try{ video.width = video.videoWidth; video.height = video.videoHeight; }catch(_){}
+                        }
+                        predictWebcam(); 
+                    };
+                    video.addEventListener("loadeddata", startDetect, { once:true });
+                    video.addEventListener("loadedmetadata", startDetect, { once:true });
                     debugInfo.innerText = "Webcam active. Show hand.";
                 } catch(e) {
                     console.warn("Webcam access denied or not available", e);
@@ -819,6 +826,7 @@
                     runningMode: "VIDEO",
                     numHands: 1
                 });
+                debugInfo.innerText = "Hand model ready.";
             }catch(e){ console.warn('vision init failed', e); }
         }
 
