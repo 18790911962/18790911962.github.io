@@ -790,7 +790,8 @@
                 video: {
                     width: { ideal: 640 },
                     height: { ideal: 480 },
-                    frameRate: { ideal: 30 }
+                    frameRate: { ideal: 30 },
+                    facingMode: 'user'
                 }
             };
             if (navigator.mediaDevices?.getUserMedia) {
@@ -806,7 +807,8 @@
                     };
                     video.addEventListener("loadeddata", startDetect, { once:true });
                     video.addEventListener("loadedmetadata", startDetect, { once:true });
-                    debugInfo.innerText = "Webcam active. Show hand.";
+                    debugInfo.innerText = `Webcam ${video.videoWidth||''}x${video.videoHeight||''} active`;
+                    setTimeout(()=>{ try{ predictWebcam(); }catch(_){} }, 800);
                 } catch(e) {
                     console.warn("Webcam access denied or not available", e);
                     debugInfo.innerText = "Camera error: " + e.message;
@@ -818,15 +820,17 @@
                 const vision = await FilesetResolver.forVisionTasks(
                     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
                 );
-                handLandmarker = await HandLandmarker.createFromOptions(vision, {
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+                const handOptions = {
                     baseOptions: {
                         modelAssetPath: `https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task`,
-                        delegate: "GPU"
+                        delegate: isIOS ? "CPU" : "GPU"
                     },
                     runningMode: "VIDEO",
                     numHands: 1
-                });
-                debugInfo.innerText = "Hand model ready.";
+                };
+                handLandmarker = await HandLandmarker.createFromOptions(vision, handOptions);
+                debugInfo.innerText = `Hand model ready (${handOptions.baseOptions.delegate})`;
             }catch(e){ console.warn('vision init failed', e); }
         }
 
